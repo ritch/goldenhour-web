@@ -1,0 +1,72 @@
+import { createClient } from '@/lib/supabase/client';
+import { GENERIC_PROFILE, type AccountProfile } from '@/types/profile';
+
+type ProfileRow = {
+  user_id: string;
+  display_name: string;
+  system_prompt: string;
+  facts: string;
+  voice: string;
+  pronouns: string;
+};
+
+function rowToProfile(row: ProfileRow): AccountProfile {
+  return {
+    displayName: row.display_name,
+    systemPrompt: row.system_prompt,
+    facts: row.facts,
+    voice: row.voice === 'onyx' ? 'onyx' : 'nova',
+    pronouns:
+      row.pronouns === 'he' || row.pronouns === 'she' || row.pronouns === 'they'
+        ? row.pronouns
+        : 'they',
+  };
+}
+
+function profileToRow(userId: string, profile: AccountProfile) {
+  return {
+    user_id: userId,
+    display_name: profile.displayName.trim(),
+    system_prompt: profile.systemPrompt.trim(),
+    facts: profile.facts.trim(),
+    voice: profile.voice,
+    pronouns: profile.pronouns,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+export async function fetchAccountProfile(
+  userId: string
+): Promise<{ ok: true; profile: AccountProfile } | { ok: false; error: string }> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('user_id, display_name, system_prompt, facts, voice, pronouns')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: 'not_found' };
+  return { ok: true, profile: rowToProfile(data as ProfileRow) };
+}
+
+export async function upsertAccountProfile(
+  userId: string,
+  profile: AccountProfile
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const supabase = createClient();
+  const { error } = await supabase.from('user_profiles').upsert(profileToRow(userId, profile));
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+export async function ensureAccountProfile(
+  userId: string
+): Promise<{ ok: true; profile: AccountProfile } | { ok: false; error: string }> {
+  const existing = await fetchAccountProfile(userId);
+  if (existing.ok) return existing;
+  if (existing.error !== 'not_found') return { ok: false, error: existing.error };
+  const saved = await upsertAccountProfile(userId, { ...GENERIC_PROFILE });
+  if (!saved.ok) return { ok: false, error: saved.error };
+  return { ok: true, profile: { ...GENERIC_PROFILE } };
+}
