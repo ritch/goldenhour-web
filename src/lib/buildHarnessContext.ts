@@ -1,5 +1,5 @@
 import { DEFAULT_CHANNELS } from '@/types/familyChat';
-import type { FamilyChatState } from '@/types/familyChat';
+import type { FamilyChatMessage } from '@/types/familyChat';
 import type { PersonMemory } from '@/types/memory';
 import type { Medication } from '@/types/medication';
 import type { Reminder } from '@/types/reminder';
@@ -35,11 +35,16 @@ export type HarnessClientContext = {
   doctor_visits: [];
 };
 
+type FamilyChatSnapshot = {
+  messagesByChannel: Record<string, FamilyChatMessage[]>;
+  lastReadAt: Record<string, number>;
+};
+
 export function buildHarnessClientContext(input: {
   medications: Medication[];
   reminders: Reminder[];
   memory: PersonMemory;
-  familyChat: FamilyChatState;
+  familyChat: FamilyChatSnapshot;
 }): HarnessClientContext {
   const channels = DEFAULT_CHANNELS.map((ch) => {
     const messages = input.familyChat.messagesByChannel[ch.id] ?? [];

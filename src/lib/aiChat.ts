@@ -1,5 +1,6 @@
 import { getHarnessUrl, isHarnessConfigured } from '@/lib/config';
 import { harnessAuthHeaders } from '@/lib/harness';
+import { createClient } from '@/lib/supabase/client';
 import { parseAiProposals, type AiProposal } from '@/types/aiProposals';
 import type { HarnessClientContext } from '@/lib/buildHarnessContext';
 
@@ -45,6 +46,28 @@ function parseSseChunk(
     }
   }
   return remainder;
+}
+
+export async function completeChatCompletion(
+  messages: ApiChatMessage[],
+  clientContext: HarnessClientContext,
+  signal?: AbortSignal
+): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
+  const supabase = createClient();
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData.session?.access_token;
+  if (!token) return { ok: false, error: 'Sign in required' };
+
+  let text = '';
+  const result = await streamChatCompletion(
+    messages,
+    token,
+    clientContext,
+    { onDelta: (delta) => { text += delta; } },
+    signal
+  );
+  if (!result.ok) return result;
+  return { ok: true, text };
 }
 
 export async function streamChatCompletion(

@@ -21,6 +21,7 @@ export const DEFAULT_CHANNELS: ChatChannel[] = [
   { id: 'general', name: 'General', description: 'Everyone — everyday notes and hello' },
   { id: 'updates', name: 'Updates', description: 'Plans, arrivals, and quick status' },
   { id: 'help', name: 'Help', description: 'Ask for a hand or check in' },
+  { id: 'caregivers', name: 'Caregivers', description: 'Care team coordination' },
 ];
 
 export function emptyFamilyChatState(): FamilyChatState {

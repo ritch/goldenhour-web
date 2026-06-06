@@ -10,6 +10,9 @@ function JoinInner() {
   const router = useRouter();
   const params = useSearchParams();
   const code = params.get('code')?.trim().toUpperCase() ?? '';
+  const roleParam = params.get('role')?.trim().toLowerCase() ?? 'member';
+  const joinRole =
+    roleParam === 'caregiver' || roleParam === 'doctor' ? roleParam : 'member';
   const [status, setStatus] = useState<'idle' | 'busy' | 'ok' | 'err'>('idle');
   const [message, setMessage] = useState('');
 
@@ -22,7 +25,7 @@ function JoinInner() {
         return;
       }
       setStatus('busy');
-      const result = await joinHousehold(code);
+      const result = await joinHousehold(code, joinRole);
       if (result.ok) {
         setStatus('ok');
         setMessage('Joined household!');

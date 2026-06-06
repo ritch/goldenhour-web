@@ -1,13 +1,23 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
+import { ChatMarkdown } from '@/components/ChatMarkdown';
+import { useFamilyChat } from '@/hooks/useFamilyChat';
+import { useHouseholdRole } from '@/hooks/useHouseholdRole';
 import { useSession } from '@/hooks/useSession';
+import { FAMILY_AI_AUTHOR } from '@/lib/familyChatAiConstants';
 import { ensureAccountProfile } from '@/lib/profile';
 import { displayName } from '@/lib/pronouns';
-import { loadFamilyChat, saveFamilyChat } from '@/lib/webStorage';
-import { DEFAULT_CHANNELS, newChatMessageId, type FamilyChatMessage } from '@/types/familyChat';
+import type { AccountProfile } from '@/types/profile';
+import { DEFAULT_CHANNELS } from '@/types/familyChat';
+
+function bubbleClass(authorLabel: string, selfLabel: string): string {
+  if (authorLabel === FAMILY_AI_AUTHOR) return 'bubble-ai';
+  if (authorLabel === selfLabel) return 'bubble-user';
+  return 'bubble-assistant';
+}
 
 export default function FamilyChannelPage() {
   const params = useParams();
@@ -15,83 +25,151 @@ export default function FamilyChannelPage() {
   const channel = DEFAULT_CHANNELS.find((c) => c.id === channelId);
   const { user, loading } = useSession();
   const [author, setAuthor] = useState('Family');
-  const [messages, setMessages] = useState<FamilyChatMessage[]>([]);
+  const [profile, setProfile] = useState<AccountProfile | null>(null);
+  const household = useHouseholdRole();
+  const familyChat = useFamilyChat(
+    author,
+    user?.id ?? '',
+    profile,
+    household.ready ? household.permissions : undefined
+  );
   const [draft, setDraft] = useState('');
-
-  const markRead = useCallback(() => {
-    const state = loadFamilyChat();
-    const msgs = state.messagesByChannel[channelId] ?? [];
-    const latestAt = msgs.reduce((max, m) => Math.max(max, m.createdAt), 0);
-    const lastRead = state.lastReadAt[channelId] ?? 0;
-    if (latestAt > 0 && lastRead >= latestAt) return;
-    saveFamilyChat({
-      ...state,
-      lastReadAt: { ...state.lastReadAt, [channelId]: Date.now() },
-    });
-  }, [channelId]);
+  const [postError, setPostError] = useState<string | undefined>();
+  const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!user) return;
     void ensureAccountProfile(user.id).then((r) => {
-      if (r.ok) setAuthor(displayName(r.profile));
+      if (r.ok) {
+        setProfile(r.profile);
+        setAuthor(displayName(r.profile));
+      }
     });
-    const state = loadFamilyChat();
-    setMessages(state.messagesByChannel[channelId] ?? []);
-    markRead();
-  }, [user, channelId, markRead]);
+  }, [user]);
 
-  const post = () => {
+  useEffect(() => {
+    if (!familyChat.ready || familyChat.noHousehold) return;
+    void familyChat.markChannelRead(channelId);
+  }, [familyChat.ready, familyChat.noHousehold, channelId, familyChat]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [familyChat.messagesByChannel, channelId, familyChat.aiReplyingChannel]);
+
+  const post = async (requestAi = false) => {
+    setPostError(undefined);
     const trimmed = draft.trim();
     if (!trimmed) return;
-    const state = loadFamilyChat();
-    const message: FamilyChatMessage = {
-      id: newChatMessageId(),
-      channelId,
-      authorLabel: author,
-      text: trimmed,
-      createdAt: Date.now(),
-    };
-    const next = [...(state.messagesByChannel[channelId] ?? []), message];
-    saveFamilyChat({
-      ...state,
-      messagesByChannel: { ...state.messagesByChannel, [channelId]: next },
-      lastReadAt: { ...state.lastReadAt, [channelId]: Date.now() },
-    });
-    setMessages(next);
+    const ok = await familyChat.postMessage(channelId, trimmed, { requestAi });
+    if (!ok) {
+      setPostError('Could not post — check household membership.');
+      return;
+    }
     setDraft('');
   };
 
-  if (loading || !user) {
+  if (loading || !user || !familyChat.ready) {
     return <div className="min-h-screen flex items-center justify-center text-muted">Loading…</div>;
   }
 
-  if (!channel) {
-    return <AppShell title="Not found" backHref="/family"><p>Unknown channel</p></AppShell>;
+  if (familyChat.loadError) {
+    return (
+      <AppShell title="Family Chat" backHref="/family">
+        <p className="text-muted mb-4">{familyChat.loadError}</p>
+        <button type="button" className="btn-primary" onClick={() => void familyChat.refresh()}>
+          Try again
+        </button>
+      </AppShell>
+    );
   }
 
+  if (!channel) {
+    return (
+      <AppShell title="Not found" backHref="/family">
+        <p>Unknown channel</p>
+      </AppShell>
+    );
+  }
+
+  if (
+    household.ready &&
+    !household.permissions.canSeeFamilyChat &&
+    !household.permissions.canSeeCaregiverChat
+  ) {
+    return (
+      <AppShell title="Family Chat" backHref="/family">
+        <p className="text-muted">Your role does not include access to household chat.</p>
+      </AppShell>
+    );
+  }
+
+  if (familyChat.noHousehold) {
+    return (
+      <AppShell title={`#${channel.name}`} backHref="/family">
+        <p className="text-muted">Join a household to view and post in channels.</p>
+      </AppShell>
+    );
+  }
+
+  const displayChannel = familyChat.channels.find((c) => c.id === channelId) ?? channel;
+  const messages = familyChat.messagesByChannel[channelId] ?? [];
+  const aiReplying = familyChat.aiReplyingChannel === channelId;
+
   return (
-    <AppShell title={`#${channel.name}`} subtitle={channel.description} backHref="/family">
+    <AppShell
+      title={`#${displayChannel.name}`}
+      subtitle={displayChannel.description}
+      backHref="/family"
+    >
       <div className="space-y-3 min-h-[50vh] mb-4">
-        {messages.length === 0 ? (
-          <p className="text-muted text-sm text-center">No messages yet.</p>
+        {messages.length === 0 && !aiReplying ? (
+          <p className="text-muted text-sm text-center">
+            No messages yet. Say hello or mention @ai for help.
+          </p>
         ) : (
           messages.map((m) => (
-            <div key={m.id} className={m.authorLabel === author ? 'bubble-user' : 'bubble-assistant'}>
+            <div key={m.id} className={bubbleClass(m.authorLabel, author)}>
               <p className="text-muted text-xs font-bold mb-1">{m.authorLabel}</p>
-              <p className="text-sm whitespace-pre-wrap">{m.text}</p>
+              <ChatMarkdown>{m.text}</ChatMarkdown>
             </div>
           ))
         )}
+        {aiReplying ? (
+          <div className="bubble-ai">
+            <p className="text-muted text-xs font-bold mb-1">{FAMILY_AI_AUTHOR}</p>
+            <p className="text-sm text-muted">Thinking…</p>
+          </div>
+        ) : null}
+        <div ref={bottomRef} />
       </div>
+      {postError ? <p className="text-warning text-sm mb-2">{postError}</p> : null}
       <div className="flex gap-2">
         <input
           className="input flex-1"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder="Write a message…"
-          onKeyDown={(e) => e.key === 'Enter' && post()}
+          placeholder={`Message #${displayChannel.name}… (type @ai to ask)`}
+          disabled={aiReplying}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void post(false);
+          }}
         />
-        <button type="button" className="btn-primary" onClick={post}>
+        {household.permissions.canUseAi ? (
+          <button
+            type="button"
+            className="btn-secondary"
+            disabled={!draft.trim() || aiReplying}
+            onClick={() => void post(true)}
+          >
+            Send to AI
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className="btn-primary"
+          disabled={!draft.trim() || aiReplying}
+          onClick={() => void post(false)}
+        >
           Post
         </button>
       </div>

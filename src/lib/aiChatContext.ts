@@ -34,6 +34,9 @@ export function buildAiChatSystemMessage(
     factsBlock ? `Facts about ${name}:\n${factsBlock}` : '',
     memoryBlock,
     `Speak clearly and simply. ${subject} may read your replies aloud. Use ${possessive} name when natural.`,
+    'For medical research questions, use search_medical_literature then get_medical_study for papers you cite. ' +
+      'Cite PMIDs or NCT IDs. Summarize in plain language — not medical advice.',
+    'For follow-ups, supplies, or caregiver tasks, use get_household_todos and create_todo (shared household Tasks list).',
   ]
     .filter(Boolean)
     .join('\n\n');

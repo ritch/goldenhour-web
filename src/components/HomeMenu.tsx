@@ -1,34 +1,104 @@
+'use client';
+
 import Link from 'next/link';
+import type { HouseholdPermissions } from '@/types/householdRoles';
 
-const CARDS = [
-  { href: '/write', label: 'Write', desc: 'Compose a message' },
-  { href: '/chat', label: 'AI Chat', desc: 'Talk with your assistant' },
-  { href: '/family', label: 'Family', desc: 'Household channels' },
-  { href: '/reminders', label: 'Reminders', desc: 'Scheduled alerts (browser)' },
-  { href: '/meds', label: 'Meds', desc: 'Medication list' },
-  { href: '/settings', label: 'Settings', desc: 'Profile & memory' },
-  { href: '/household', label: 'Household', desc: 'Family group & invite' },
-] as const;
+type Card = {
+  href: string;
+  label: string;
+  desc: string;
+  show: boolean;
+  badge?: number;
+};
 
-export function HomeMenu({ name }: { name: string }) {
+export function HomeMenu({
+  name,
+  permissions,
+  notificationUnread = 0,
+}: {
+  name: string;
+  permissions: HouseholdPermissions;
+  notificationUnread?: number;
+}) {
+  const showFamily = permissions.canSeeFamilyChat || permissions.canSeeCaregiverChat;
+
+  const cards: Card[] = [
+    { href: '/write', label: 'Write', desc: 'Compose a message', show: true },
+    {
+      href: '/chat',
+      label: 'AI Chat',
+      desc: 'Talk with your assistant',
+      show: permissions.canUseAi,
+    },
+    {
+      href: '/family',
+      label: permissions.canSeeFamilyChat ? 'Family' : 'Caregivers',
+      desc: 'Household channels',
+      show: showFamily,
+    },
+    {
+      href: '/notifications',
+      label: 'Alerts',
+      desc: 'Mentions, tasks & reminders',
+      show: true,
+      badge: notificationUnread,
+    },
+    {
+      href: '/reminders',
+      label: 'Remind',
+      desc: 'Scheduled alerts',
+      show: permissions.canUseAi,
+    },
+    { href: '/todos', label: 'Tasks', desc: 'Shared household todos', show: true },
+    {
+      href: '/meds',
+      label: 'Meds',
+      desc: permissions.canEditMeds ? 'Medication list' : 'View medications',
+      show: permissions.canViewMeds,
+    },
+    {
+      href: '/settings',
+      label: 'Settings',
+      desc: 'Profile & memory',
+      show: permissions.canUseAi,
+    },
+    {
+      href: '/household',
+      label: 'Household',
+      desc: 'Family group & roles',
+      show: permissions.canInviteMembers || permissions.canManageRoles,
+    },
+  ];
+
   return (
     <div>
-      <p className="text-muted mb-4">Hello, <span className="text-foreground font-bold">{name}</span></p>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        {CARDS.map((card) => (
-          <Link
-            key={card.href}
-            href={card.href}
-            className="aspect-square rounded-2xl border-2 border-border bg-surface p-4 flex flex-col justify-center items-center text-center hover:border-accent transition-colors"
-          >
-            <span className="text-xl font-extrabold">{card.label}</span>
-            <span className="text-muted text-xs mt-1 font-semibold">{card.desc}</span>
-          </Link>
-        ))}
-      </div>
-      <p className="text-muted text-xs mt-6 text-center">
-        Web app — camera, mic recording, and push notifications are on mobile only.
+      <img
+        src="/golden-hour-logo.svg"
+        alt="Golden Hour"
+        className="w-full aspect-[3/2] mb-4"
+      />
+      <p className="text-muted mb-4">
+        Hello, <span className="text-foreground font-bold">{name}</span>
       </p>
+      <div className="grid grid-cols-3 gap-3">
+        {cards
+          .filter((c) => c.show)
+          .map((card) => (
+            <Link
+              key={card.href}
+              href={card.href}
+              className="relative aspect-square rounded-2xl border-2 border-border bg-surface p-4 flex flex-col justify-center items-center text-center hover:border-accent transition-colors"
+            >
+              {card.badge != null && card.badge > 0 ? (
+                <span className="absolute top-2 right-2 min-w-[1.375rem] h-[1.375rem] rounded-full bg-red-500 text-white text-xs font-extrabold flex items-center justify-center px-1">
+                  {card.badge > 9 ? '9+' : card.badge}
+                </span>
+              ) : null}
+              <span className="text-sm sm:text-base font-extrabold leading-tight">{card.label}</span>
+              <span className="text-muted text-[10px] sm:text-xs mt-1 font-semibold leading-tight">{card.desc}</span>
+            </Link>
+          ))}
+      </div>
     </div>
   );
 }

@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" role="img" aria-labelledby="title desc">
+  <title id="title">Golden Hour Logo</title>
+  <desc id="desc">A minimal sunset icon with purple, pink, orange, and golden gradients beside the words Golden Hour.</desc>
+  <defs>
+    <linearGradient id="sunsetSky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2819A3"/>
+      <stop offset="38%" stop-color="#B31CB8"/>
+      <stop offset="68%" stop-color="#FF3D72"/>
+      <stop offset="100%" stop-color="#FFB31A"/>
+    </linearGradient>
+    <linearGradient id="sunCore" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFF7C8"/>
+      <stop offset="100%" stop-color="#FFBD22"/>
+    </linearGradient>
+    <linearGradient id="reflection" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#FF496F"/>
+      <stop offset="58%" stop-color="#FF7A3D"/>
+      <stop offset="100%" stop-color="#FFB31A"/>
+    </linearGradient>
+    <linearGradient id="wordGradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#291AA3"/>
+      <stop offset="38%" stop-color="#B51BB8"/>
+      <stop offset="67%" stop-color="#FF3D72"/>
+      <stop offset="100%" stop-color="#FFB31A"/>
+    </linearGradient>
+    <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <clipPath id="skyClip">
+      <path d="M90 430 A205 205 0 0 1 500 430 Z"/>
+    </clipPath>
+  </defs>
+
+  <!-- Icon -->
+  <g transform="translate(10,10)">
+    <path d="M90 430 A205 205 0 0 1 500 430 Z" fill="url(#sunsetSky)"/>
+    <circle cx="295" cy="430" r="78" fill="url(#sunCore)" filter="url(#softGlow)" clip-path="url(#skyClip)"/>
+    <rect x="70" y="430" width="450" height="14" rx="7" fill="#FFFDF8"/>
+    <rect x="118" y="448" width="354" height="20" rx="10" fill="url(#reflection)"/>
+    <rect x="150" y="480" width="290" height="18" rx="9" fill="url(#reflection)" opacity=".95"/>
+    <rect x="190" y="510" width="210" height="16" rx="8" fill="url(#reflection)" opacity=".9"/>
+    <rect x="250" y="542" width="90" height="14" rx="7" fill="#FFB31A" opacity=".95"/>
+  </g>
+
+  <!-- Wordmark -->
+  <g fill="url(#wordGradient)" font-family="Inter, Avenir Next, Helvetica Neue, Arial, sans-serif" font-weight="600">
+    <text x="550" y="358" font-size="132" letter-spacing="-4">Golden</text>
+    <text x="550" y="520" font-size="132" letter-spacing="-4">Hour</text>
+  </g>
+</svg>

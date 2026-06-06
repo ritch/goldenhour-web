@@ -1,5 +1,23 @@
 import { createClient } from '@/lib/supabase/client';
-import { GENERIC_PROFILE, type AccountProfile } from '@/types/profile';
+import { GENERIC_PROFILE, type AccountProfile, type PronounSet } from '@/types/profile';
+
+export function parsePronounSet(value: unknown): PronounSet {
+  if (value === 'he' || value === 'she' || value === 'they') return value;
+  return 'they';
+}
+
+export function profileFromRegistration(
+  firstName?: string | null,
+  pronouns?: unknown
+): AccountProfile | null {
+  const name = firstName?.trim();
+  if (!name) return null;
+  return {
+    ...GENERIC_PROFILE,
+    displayName: name,
+    pronouns: parsePronounSet(pronouns),
+  };
+}
 
 type ProfileRow = {
   user_id: string;
@@ -66,7 +84,19 @@ export async function ensureAccountProfile(
   const existing = await fetchAccountProfile(userId);
   if (existing.ok) return existing;
   if (existing.error !== 'not_found') return { ok: false, error: existing.error };
-  const saved = await upsertAccountProfile(userId, { ...GENERIC_PROFILE });
+
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const meta = user?.user_metadata ?? {};
+  const profile =
+    profileFromRegistration(
+      (meta.first_name as string | undefined) ?? (meta.display_name as string | undefined),
+      meta.pronouns
+    ) ?? { ...GENERIC_PROFILE };
+
+  const saved = await upsertAccountProfile(userId, profile);
   if (!saved.ok) return { ok: false, error: saved.error };
-  return { ok: true, profile: { ...GENERIC_PROFILE } };
+  return { ok: true, profile };
 }

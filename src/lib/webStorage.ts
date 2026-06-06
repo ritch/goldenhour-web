@@ -1,6 +1,6 @@
 'use client';
 
-import { emptyFamilyChatState, type FamilyChatState } from '@/types/familyChat';
+import { DEFAULT_CHANNELS } from '@/types/familyChat';
 import { emptyMemory, type PersonMemory } from '@/types/memory';
 import type { Medication } from '@/types/medication';
 import type { Reminder } from '@/types/reminder';
@@ -30,6 +30,11 @@ export function setActiveHouseholdId(id: string): void {
   writeJson(ACTIVE_HOUSEHOLD, id);
 }
 
+export function clearActiveHouseholdId(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(ACTIVE_HOUSEHOLD);
+}
+
 export function memoryKey(userId: string): string {
   return `gh-web/memory/${userId}`;
 }
@@ -42,8 +47,27 @@ export function remindersKey(): string {
   return 'gh-web/reminders';
 }
 
-export function familyChatKey(): string {
-  return 'gh-web/family-chat';
+function familyReadKey(householdId: string): string {
+  return `gh-web/family-read/${householdId}`;
+}
+
+function emptyReadMap(): Record<string, number> {
+  const map: Record<string, number> = {};
+  for (const ch of DEFAULT_CHANNELS) map[ch.id] = Date.now();
+  return map;
+}
+
+export function loadLastReadAt(householdId: string): Record<string, number> {
+  const map = readJson(familyReadKey(householdId), emptyReadMap());
+  const out = emptyReadMap();
+  for (const ch of DEFAULT_CHANNELS) {
+    if (typeof map[ch.id] === 'number') out[ch.id] = map[ch.id];
+  }
+  return out;
+}
+
+export function saveLastReadAt(householdId: string, lastReadAt: Record<string, number>): void {
+  writeJson(familyReadKey(householdId), lastReadAt);
 }
 
 export function loadMemory(userId: string): PersonMemory {
@@ -85,10 +109,3 @@ export function saveReminders(reminders: Reminder[]): void {
   writeJson(remindersKey(), reminders);
 }
 
-export function loadFamilyChat(): FamilyChatState {
-  return readJson(familyChatKey(), emptyFamilyChatState());
-}
-
-export function saveFamilyChat(state: FamilyChatState): void {
-  writeJson(familyChatKey(), state);
-}

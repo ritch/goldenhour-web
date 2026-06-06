@@ -1,32 +1,27 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { AppShell } from '@/components/AppShell';
-import { HomeMenu } from '@/components/HomeMenu';
-import { useSession } from '@/hooks/useSession';
-import { ensureAccountProfile } from '@/lib/profile';
-import { displayName } from '@/lib/pronouns';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
+/** Preserve auth tokens from Supabase emails before routing into the app shell. */
 export default function HomePage() {
-  const { user, loading } = useSession();
-  const [name, setName] = useState('…');
+  const router = useRouter();
 
   useEffect(() => {
-    if (!user) return;
-    void ensureAccountProfile(user.id).then((r) => {
-      if (r.ok) setName(displayName(r.profile));
-    });
-  }, [user]);
+    const { hash, search } = window.location;
 
-  if (loading || !user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-muted">Loading…</div>
-    );
-  }
+    if (hash.includes('type=recovery')) {
+      router.replace(`/auth/reset-password${hash}`);
+      return;
+    }
 
-  return (
-    <AppShell title="Golden Hour" subtitle="Home" backHref={null}>
-      <HomeMenu name={name} />
-    </AppShell>
-  );
+    if (new URLSearchParams(search).get('code')) {
+      router.replace(`/auth/callback${search}`);
+      return;
+    }
+
+    router.replace('/write');
+  }, [router]);
+
+  return null;
 }

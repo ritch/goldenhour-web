@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppShell } from '@/components/AppShell';
+import { ChatMarkdown } from '@/components/ChatMarkdown';
 import { ChatProposals } from '@/components/ChatProposals';
+import { useHouseholdRole } from '@/hooks/useHouseholdRole';
 import { useSession } from '@/hooks/useSession';
 import { streamChatCompletion } from '@/lib/aiChat';
 import { buildAiChatSystemMessage } from '@/lib/aiChatContext';
@@ -11,12 +13,8 @@ import { buildHarnessClientContext } from '@/lib/buildHarnessContext';
 import { ensureAccountProfile } from '@/lib/profile';
 import { displayName } from '@/lib/pronouns';
 import { createClient } from '@/lib/supabase/client';
-import {
-  loadFamilyChat,
-  loadMedications,
-  loadMemory,
-  loadReminders,
-} from '@/lib/webStorage';
+import { fetchFamilyChatHarnessSnapshot } from '@/lib/familyChatSync';
+import { loadMedications, loadMemory, loadReminders } from '@/lib/webStorage';
 import type { AiProposalState } from '@/types/aiProposals';
 import type { AccountProfile } from '@/types/profile';
 import type { PersonMemory } from '@/types/memory';
@@ -25,6 +23,7 @@ type ChatMessage = { id: string; role: 'user' | 'assistant'; content: string };
 
 export default function ChatPage() {
   const { user, loading } = useSession();
+  const household = useHouseholdRole();
   const [profile, setProfile] = useState<AccountProfile | null>(null);
   const [memory, setMemory] = useState<PersonMemory | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -82,11 +81,15 @@ export default function ChatPage() {
     }
 
     const history = [...messages, userMsg];
+    const familyChatSnap = await fetchFamilyChatHarnessSnapshot();
     const clientContext = buildHarnessClientContext({
       medications: loadMedications(user.id),
       reminders: loadReminders(),
       memory,
-      familyChat: loadFamilyChat(),
+      familyChat: familyChatSnap ?? {
+        messagesByChannel: { general: [], updates: [], help: [], caregivers: [] },
+        lastReadAt: { general: 0, updates: 0, help: 0, caregivers: 0 },
+      },
     });
 
     const result = await streamChatCompletion(
@@ -138,19 +141,31 @@ export default function ChatPage() {
     }
   };
 
-  if (loading || !user) {
+  if (loading || !user || !household.ready) {
     return <div className="min-h-screen flex items-center justify-center text-muted">Loading…</div>;
   }
 
+  if (!household.permissions.canUseAi) {
+    return (
+      <AppShell title="AI Chat" backHref="/write">
+        <p className="text-muted">AI chat is not available for your household role.</p>
+      </AppShell>
+    );
+  }
+
   return (
-    <AppShell title="AI Chat" subtitle={profile ? displayName(profile) : ''}>
+    <AppShell title="AI Chat" subtitle={profile ? displayName(profile) : ''} backHref="/write">
       <div className="flex flex-col gap-3 min-h-[60vh]">
         {messages.length === 0 ? (
           <p className="text-muted text-sm">Ask anything — meds, family, reminders, memory.</p>
         ) : null}
         {messages.map((m) => (
           <div key={m.id} className={m.role === 'user' ? 'bubble-user' : 'bubble-assistant'}>
-            <p className="whitespace-pre-wrap text-sm leading-relaxed">{m.content || (streaming ? '…' : '')}</p>
+            {m.content ? (
+              <ChatMarkdown>{m.content}</ChatMarkdown>
+            ) : streaming ? (
+              <p className="text-sm text-muted">…</p>
+            ) : null}
           </div>
         ))}
         <div ref={bottomRef} />

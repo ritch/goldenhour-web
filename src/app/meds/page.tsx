@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { AppShell } from '@/components/AppShell';
+import { useHouseholdRole } from '@/hooks/useHouseholdRole';
 import { useSession } from '@/hooks/useSession';
 import { loadMedications, saveMedications } from '@/lib/webStorage';
 import { newMedicationId, type Medication } from '@/types/medication';
 
 export default function MedsPage() {
   const { user, loading } = useSession();
+  const household = useHouseholdRole();
   const [meds, setMeds] = useState<Medication[]>([]);
   const [name, setName] = useState('');
   const [strength, setStrength] = useState('');
@@ -43,18 +45,34 @@ export default function MedsPage() {
     setMeds(next);
   };
 
-  if (loading || !user) {
+  if (loading || !user || !household.ready) {
     return <div className="min-h-screen flex items-center justify-center text-muted">Loading…</div>;
   }
 
+  if (!household.permissions.canViewMeds) {
+    return (
+      <AppShell title="Medications" backHref="/health">
+        <p className="text-muted">Medications are not available for your household role.</p>
+      </AppShell>
+    );
+  }
+
+  const readOnly = !household.permissions.canEditMeds;
+
   return (
-    <AppShell title="Medications" subtitle="No camera scan on web">
+    <AppShell
+      title="Medications"
+      subtitle={readOnly ? 'View only' : 'Your medication list'}
+      backHref="/health"
+    >
+      {readOnly ? null : (
       <div className="card space-y-2 mb-4">
         <input className="input" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
         <input className="input" placeholder="Strength" value={strength} onChange={(e) => setStrength(e.target.value)} />
         <input className="input" placeholder="Times (comma-separated, e.g. 08:00, 20:00)" value={times} onChange={(e) => setTimes(e.target.value)} />
         <button type="button" className="btn-primary" onClick={add}>Add medication</button>
       </div>
+      )}
       <div className="space-y-2">
         {meds.map((m) => (
           <div key={m.id} className="card flex justify-between gap-2">
@@ -63,7 +81,9 @@ export default function MedsPage() {
               {m.strength ? <p className="text-muted text-sm">{m.strength}</p> : null}
               <p className="text-sm">{m.scheduleTimes.join(' · ')}</p>
             </div>
-            <button type="button" className="text-warning text-sm font-bold" onClick={() => remove(m.id)}>Remove</button>
+            {readOnly ? null : (
+              <button type="button" className="text-warning text-sm font-bold" onClick={() => remove(m.id)}>Remove</button>
+            )}
           </div>
         ))}
         {meds.length === 0 ? <p className="text-muted text-sm">No medications yet.</p> : null}

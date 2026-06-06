@@ -1,13 +1,16 @@
 import type { AiProposal } from '@/types/aiProposals';
 import { newMedicationId, type Medication } from '@/types/medication';
 import { newReminderId } from '@/types/reminder';
-import { newChatMessageId } from '@/types/familyChat';
+import {
+  channelUuidForSlug,
+  fetchHouseholdChannels,
+  postHouseholdMessage,
+  resolveHouseholdChat,
+} from '@/lib/familyChatSync';
 import {
   appendMemoryEntry,
-  loadFamilyChat,
   loadMedications,
   loadReminders,
-  saveFamilyChat,
   saveMedications,
   saveReminders,
 } from '@/lib/webStorage';
@@ -23,20 +26,21 @@ export async function applyAiProposal(
   }
 
   if (proposal.type === 'family_message') {
-    const state = loadFamilyChat();
-    const message = {
-      id: newChatMessageId(),
-      channelId: proposal.channel_id,
+    const household = await resolveHouseholdChat();
+    if (!household.ok || ('empty' in household && household.empty)) {
+      return { ok: false, error: 'Join a household to post family messages' };
+    }
+    const channels = await fetchHouseholdChannels(household.householdId);
+    const channelUuid = channelUuidForSlug(channels, proposal.channel_id);
+    if (!channelUuid) return { ok: false, error: 'Channel not found' };
+    const posted = await postHouseholdMessage({
+      householdId: household.householdId,
+      channelUuid,
+      channelSlug: proposal.channel_id,
       authorLabel,
       text: proposal.message,
-      createdAt: Date.now(),
-    };
-    const messages = [...(state.messagesByChannel[proposal.channel_id] ?? []), message];
-    saveFamilyChat({
-      ...state,
-      messagesByChannel: { ...state.messagesByChannel, [proposal.channel_id]: messages },
-      lastReadAt: { ...state.lastReadAt, [proposal.channel_id]: Date.now() },
     });
+    if (!posted) return { ok: false, error: 'Could not post message' };
     return { ok: true };
   }
 

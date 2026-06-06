@@ -1,13 +1,17 @@
 @import "tailwindcss";
 
 :root {
-  --background: #1f1528;
-  --foreground: #fff5eb;
-  --surface: #3d2c3a;
-  --border: #8b5e52;
-  --accent: #f0a060;
-  --muted: #c4a494;
-  --warning: #e8b86a;
+  --background: #1a0e38;
+  --foreground: #fff7c8;
+  --surface: #2e1f52;
+  --border: #6b5094;
+  --accent: #ffb31a;
+  --accent-muted: #5c3478;
+  --on-accent: #1a0e38;
+  --muted: #c4a8d8;
+  --warning: #ffbd22;
+  --ai-surface: #261a5c;
+  --ai-border: #4a38a0;
 }
 
 @theme inline {
@@ -16,8 +20,12 @@
   --color-surface: var(--surface);
   --color-border: var(--border);
   --color-accent: var(--accent);
+  --color-accent-muted: var(--accent-muted);
+  --color-on-accent: var(--on-accent);
   --color-muted: var(--muted);
   --color-warning: var(--warning);
+  --color-ai-surface: var(--ai-surface);
+  --color-ai-border: var(--ai-border);
   --font-sans: var(--font-geist-sans);
 }
 
@@ -27,12 +35,26 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.pb-nav {
+  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+@media (min-width: 768px) {
+  .pb-nav {
+    padding-bottom: 1rem;
+  }
+}
+
 .input {
   @apply w-full rounded-xl border-2 border-border bg-surface px-4 py-3 text-foreground outline-none focus:border-accent;
 }
 
 .btn-primary {
-  @apply rounded-xl border-2 border-accent bg-accent px-4 py-3 font-extrabold text-[#2a1810] disabled:opacity-50;
+  @apply rounded-xl border-2 border-accent bg-accent px-4 py-3 font-extrabold text-on-accent disabled:opacity-50;
 }
 
 .btn-secondary {
@@ -44,9 +66,97 @@ body {
 }
 
 .bubble-user {
-  @apply ml-auto max-w-[90%] rounded-2xl border-2 border-accent bg-[#7a4e3a] px-4 py-3;
+  @apply ml-auto max-w-[90%] rounded-2xl border-2 border-accent bg-accent-muted px-4 py-3;
 }
 
 .bubble-assistant {
   @apply mr-auto max-w-[90%] rounded-2xl border-2 border-border bg-surface px-4 py-3;
+}
+
+.bubble-ai {
+  @apply mr-auto max-w-[90%] rounded-2xl border-2 border-ai-border bg-ai-surface px-4 py-3;
+}
+
+.chat-markdown {
+  @apply text-sm leading-relaxed font-semibold;
+}
+
+.chat-markdown > :first-child {
+  margin-top: 0;
+}
+
+.chat-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.chat-markdown p {
+  @apply mb-2 last:mb-0;
+}
+
+.chat-markdown h1,
+.chat-markdown h2,
+.chat-markdown h3 {
+  @apply font-extrabold mb-2 mt-1;
+}
+
+.chat-markdown h1 {
+  @apply text-lg;
+}
+
+.chat-markdown h2 {
+  @apply text-base;
+}
+
+.chat-markdown h3 {
+  @apply text-sm;
+}
+
+.chat-markdown ul,
+.chat-markdown ol {
+  @apply mb-2 pl-5;
+}
+
+.chat-markdown ul {
+  @apply list-disc;
+}
+
+.chat-markdown ol {
+  @apply list-decimal;
+}
+
+.chat-markdown li {
+  @apply mb-1;
+}
+
+.chat-markdown a {
+  @apply text-accent underline;
+}
+
+.chat-markdown code {
+  @apply rounded bg-black/25 px-1 py-0.5 text-xs font-mono;
+}
+
+.chat-markdown pre {
+  @apply mb-2 overflow-x-auto rounded-lg bg-black/25 p-3 text-xs font-mono;
+}
+
+.chat-markdown pre code {
+  @apply bg-transparent p-0;
+}
+
+.chat-markdown blockquote {
+  @apply mb-2 border-l-4 border-accent pl-3 text-muted;
+}
+
+.chat-markdown hr {
+  @apply my-2 border-border;
+}
+
+.chat-markdown table {
+  @apply mb-2 w-full text-xs;
+}
+
+.chat-markdown th,
+.chat-markdown td {
+  @apply border border-border px-2 py-1 text-left;
 }
